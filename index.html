@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yuul — a Secret Santa draw that runs itself</title>
+<meta name="description" content="Create a Secret Santa draw, share one link, and Yuul pairs everyone in secret. No accounts, no email.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%231e3d2f'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='%23e9b44c' font-family='Georgia,serif'%3EY%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#faf6ee; --card:#ffffff; --ink:#22302a; --pine:#1e3d2f; --pine2:#2c5542;
+    --amber:#e9b44c; --amber-ink:#7a5410; --muted:#6d7a72; --line:#e7dfcf;
+    --danger:#b3382e; --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.5}
+  .wrap{max-width:560px;margin:0 auto;padding:24px 16px 64px}
+  .brand{display:flex;align-items:baseline;gap:8px;margin:8px 0 24px}
+  .brand .word{font-family:Georgia,"Times New Roman",serif;font-size:34px;font-weight:700;color:var(--pine);letter-spacing:.5px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);align-self:center}
+  h1{font-family:Georgia,"Times New Roman",serif;font-size:30px;line-height:1.2;margin:0 0 8px;color:var(--pine)}
+  h2{font-family:Georgia,"Times New Roman",serif;font-size:21px;margin:24px 0 8px;color:var(--pine)}
+  p{margin:0 0 16px}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 16px;margin:0 0 16px}
+  label{display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:var(--pine)}
+  input[type=text],input[type=date],textarea,select{
+    width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;
+    font-size:16px;font-family:inherit;background:#fff;color:var(--ink);margin:0 0 16px}
+  textarea{resize:vertical;min-height:72px}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber)}
+  .btn{display:block;width:100%;padding:14px 16px;border:0;border-radius:12px;background:var(--pine);
+    color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;text-align:center;text-decoration:none}
+  .btn:hover{background:var(--pine2)}
+  .btn:disabled{background:#b9c4bd;cursor:not-allowed}
+  .btn.amber{background:var(--amber);color:#231a04}
+  .btn.ghost{background:transparent;color:var(--pine);border:1px solid var(--pine)}
+  .btn.danger{background:var(--danger)}
+  .btn.small-btn{width:auto;display:inline-block;padding:8px 14px;font-size:14px}
+  .linkbox{display:flex;gap:8px;align-items:stretch;margin:0 0 16px}
+  .linkbox input{margin:0;flex:1;font-size:13px;background:#fbf9f3}
+  .linkbox button{flex:0 0 auto;padding:0 16px;border-radius:12px;border:1px solid var(--pine);
+    background:#fff;color:var(--pine);font-weight:700;font-family:inherit;cursor:pointer}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;background:#f3e9d2;color:var(--amber-ink);font-size:12px;font-weight:700}
+  .pill.done{background:#dcebe2;color:var(--pine)}
+  .fact{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 16px}
+  .fact div{min-width:100px}
+  .fact .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .fact .v{font-weight:700;color:var(--pine)}
+  .reveal{background:var(--pine);color:#fdfbf5;border-radius:var(--radius);padding:24px 16px;text-align:center;margin:0 0 16px}
+  .reveal .k{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--amber)}
+  .reveal .name{font-family:Georgia,serif;font-size:32px;margin:8px 0}
+  .reveal .wish{color:#e8e2d2;font-size:15px;white-space:pre-wrap}
+  .q{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 12px;background:#fff}
+  .q .qt{font-weight:600}
+  .q .qa{margin-top:6px;color:var(--pine)}
+  .err{background:#fbeae8;border:1px solid #eec5c0;color:#7c231b;border-radius:12px;padding:12px;margin:0 0 16px}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--pine);color:#fff;padding:12px 18px;border-radius:999px;font-size:14px;font-weight:600;
+    transition:all .25s ease;pointer-events:none;max-width:90vw;text-align:center;z-index:50}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .steps{display:flex;gap:8px;margin:0 0 24px}
+  .steps span{flex:1;height:4px;border-radius:2px;background:var(--line)}
+  .steps span.on{background:var(--amber)}
+  a{color:var(--pine2)}
+  .center{text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="word">Yuul</span><span class="dot"></span></div>
+  <div id="app"><p class="muted">Loading…</p></div>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+/* Yuul — a Secret Santa draw that runs itself. One file. Data in Supabase. */
+const SB_URL = "https://wnaizysndscfxivlijke.supabase.co";
+const SB_KEY = "sb_publishable_Psa3GkHzIC6Y8PS_wyHhjQ_GzVgos6X";
+
+const app = document.getElementById("app");
+const toastEl = document.getElementById("toast");
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("show");
+  setTimeout(()=>toastEl.classList.remove("show"), 2600); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function uid(){ return (crypto.randomUUID ? crypto.randomUUID() :
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==="x"?r:(r&0x3|0x8); return v.toString(16); })); }
+function fmtDate(d){ if(!d) return "Not set"; const dt = new Date(d+"T12:00:00");
+  return dt.toLocaleDateString(undefined, {weekday:"long", day:"numeric", month:"long", year:"numeric"}); }
+function base(){ return location.origin + location.pathname; }
+
+async function api(path, opts){
+  opts = opts || {};
+  const res = await fetch(SB_URL + "/rest/v1/" + path, {
+    method: opts.method || "GET",
+    headers: Object.assign({ "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
+      "Content-Type": "application/json" }, opts.headers || {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if(!res.ok){ const t = await res.text(); throw new Error("Request failed (" + res.status + "): " + t.slice(0,180)); }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+const getOne = async (path) => { const r = await api(path); return (r && r[0]) || null; };
+
+/* ---------------- Home ---------------- */
+function viewHome(){
+  app.innerHTML = `
+    <h1>A Secret Santa draw that runs itself.</h1>
+    <p>Create a draw, share one link in your group chat, and Yuul pairs everyone in secret.
+    No accounts. No email. Nobody sees anyone else's pairing — not even the organiser.</p>
+    <div class="card">
+      <p><strong>How it works</strong></p>
+      <p class="muted">1. You create the draw and share the invite link.<br>
+      2. Everyone joins with their name and a small wishlist.<br>
+      3. You press one button. Each person opens their own link and sees only the name they drew.</p>
+      <a class="btn" href="#/create">Start a draw</a>
+    </div>
+    <p class="small muted center">Joining a draw instead? Your organiser's link brings you straight in.</p>`;
+}
+
+/* ---------------- Create ---------------- */
+function viewCreate(){
+  app.innerHTML = `
+    <div class="steps"><span class="on"></span><span></span><span></span></div>
+    <h1>Create your draw</h1>
+    <p class="muted">Thirty seconds. You can change nothing later except the pairings lock once the draw runs, so check the date.</p>
+    <div class="card">
+      <form id="createForm">
+        <label for="gname">Group name</label>
+        <input type="text" id="gname" required maxlength="60" placeholder="e.g. Office Draw 2026">
+        <label for="gdate">Gift exchange date</label>
+        <input type="date" id="gdate" required>
+        <label for="gbudget">Budget cap (optional)</label>
+        <input type="text" id="gbudget" maxlength="30" placeholder="e.g. ₦10,000">
+        <label for="goname">Your name (you are in the draw too)</label>
+        <input type="text" id="goname" required maxlength="40" placeholder="Your name">
+        <button class="btn" type="submit" id="createBtn">Create the draw</button>
+      </form>
+    </div>`;
+  document.getElementById("createForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("createBtn");
+    btn.disabled = true; btn.textContent = "Creating…";
+    try{
+      const orgToken = uid(), myToken = uid();
+      const g = await api("groups", { method:"POST",
+        headers:{ "Prefer":"return=representation" },
+        body:{ name: gname.value.trim(), exchange_date: gdate.value || null,
+               budget: gbudget.value.trim() || null,
+               organiser_name: goname.value.trim(), organiser_token: orgToken } });
+      const group = g[0];
+      await api("participants", { method:"POST",
+        body:{ group_id: group.id, name: goname.value.trim(), wishlist: null, token: myToken } });
+      try{ localStorage.setItem("yuul_my_" + group.id, myToken); }catch(_){}
+      location.hash = "#/o/" + orgToken;
+    }catch(err){
+      app.insertAdjacentHTML("afterbegin", `<div class="err">The draw could not be created. ${esc(err.message)}</div>`);
+      btn.disabled = false; btn.textContent = "Create the draw";
+    }
+  });
+}
+
+/* ---------------- Join ---------------- */
+async function viewJoin(groupId){
+  app.innerHTML = `<p class="muted">Loading the draw…</p>`;
+  let group;
+  try{ group = await getOne("groups?id=eq." + encodeURIComponent(groupId) + "&select=*"); }
+  catch(err){ app.innerHTML = `<div class="err">This draw could not be loaded. ${esc(err.message)}</div>`; return; }
+  if(!group){ app.innerHTML = `<div class="err">This invite link does not match any draw. Check the link and try again.</div>`; return; }
+  let mine = null;
+  try{ const t = localStorage.getItem("yuul_my_" + group.id); if(t) mine = t; }catch(_){}
+  const drawn = await groupDrawn(group.id);
+  app.innerHTML = `
+    <p class="pill">${drawn ? "Draw completed" : "You're invited"}</p>
+    <h1>${esc(group.name)}</h1>
+    <div class="fact">
+      <div><div class="k">Exchange day</div><div class="v">${esc(fmtDate(group.exchange_date))}</div></div>
+      ${group.budget ? `<div><div class="k">Budget cap</div><div class="v">${esc(group.budget)}</div></div>` : ""}
+      <div><div class="k">Organised by</div><div class="v">${esc(group.organiser_name)}</div></div>
+    </div>
+    ${mine ? `<div class="card"><p><strong>You are already in this draw.</strong></p>
+      <a class="btn" href="#/p/${mine}">Open your personal page</a></div>` : ""}
+    ${!mine && drawn ? `<div class="err">This draw has already been run, so joining is closed. Ask the organiser to start a new draw if you were missed.</div>` : ""}
+    ${!mine && !drawn ? `
+    <div class="card">
+      <form id="joinForm">
+        <label for="jname">Your name</label>
+        <input type="text" id="jname" required maxlength="40" placeholder="The name your group knows you by">
+        <label for="jwish">Your wishlist — up to three things, within the budget</label>
+        <textarea id="jwish" maxlength="300" placeholder="One per line. Sizes and colours help your Santa."></textarea>
+        <button class="btn" type="submit" id="joinBtn">Join the draw</button>
+      </form>
+    </div>` : ""}`;
+  const form = document.getElementById("joinForm");
+  if(form) form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("joinBtn");
+    btn.disabled = true; btn.textContent = "Joining…";
+    try{
+      const token = uid();
+      await api("participants", { method:"POST",
+        body:{ group_id: group.id, name: jname.value.trim(),
+               wishlist: jwish.value.trim() || null, token } });
+      try{ localStorage.setItem("yuul_my_" + group.id, token); }catch(_){}
+      location.hash = "#/p/" + token;
+    }catch(err){
+      app.insertAdjacentHTML("afterbegin", `<div class="err">Joining failed. ${esc(err.message)}</div>`);
+      btn.disabled = false; btn.textContent = "Join the draw";
+    }
+  });
+}
+async function groupDrawn(groupId){
+  const rows = await api("participants?group_id=eq." + groupId + "&assigned_to=not.is.null&select=id&limit=1");
+  return rows && rows.length > 0;
+}
+
+/* ---------------- Draw engine ----------------
+   A valid draw: everyone gives to exactly one person, receives from exactly
+   one person, nobody draws themselves, excluded pairs never meet.          */
+function computeDraw(people, exclusions){
+  const ids = people.map(p => p.id);
+  const blocked = new Set();
+  exclusions.forEach(x => { blocked.add(x.participant_a + ">" + x.participant_b);
+                            blocked.add(x.participant_b + ">" + x.participant_a); });
+  const can = (g, r) => g !== r && !blocked.has(g + ">" + r);
+  for(let attempt = 0; attempt < 400; attempt++){
+    const givers = ids.slice();
+    for(let i = givers.length - 1; i > 0; i--){ const j = Math.random() * (i + 1) | 0; [givers[i], givers[j]] = [givers[j], givers[i]]; }
+    const taken = new Set(), result = {};
+    let ok = true;
+    // fewest-options-first keeps hard draws solvable
+    const order = givers.slice().sort((a, b) =>
+      ids.filter(r => can(a, r)).length - ids.filter(r => can(b, r)).length);
+    const place = (k) => {
+      if(k === order.length) return true;
+      const g = order[k];
+      const options = ids.filter(r => can(g, r) && !taken.has(r));
+      for(let i = options.length - 1; i > 0; i--){ const j = Math.random() * (i + 1) | 0; [options[i], options[j]] = [options[j], options[i]]; }
+      for(const r of options){ taken.add(r); result[g] = r; if(place(k + 1)) return true; taken.delete(r); delete result[g]; }
+      return false;
+    };
+    if(place(0)) return result;
+  }
+  return null;
+}
+
+/* ---------------- Organiser ---------------- */
+async function viewOrganiser(orgToken){
+  app.innerHTML = `<p class="muted">Loading your draw…</p>`;
+  let group;
+  try{ group = await getOne("groups?organiser_token=eq." + encodeURIComponent(orgToken) + "&select=*"); }
+  catch(err){ app.innerHTML = `<div class="err">This organiser page could not be loaded. ${esc(err.message)}</div>`; return; }
+  if(!group){ app.innerHTML = `<div class="err">This organiser link does not match any draw.</div>`; return; }
+  const people = await api("participants?group_id=eq." + group.id + "&select=*&order=created_at.asc");
+  const exclusions = await api("exclusions?group_id=eq." + group.id + "&select=*");
+  const drawn = people.some(p => p.assigned_to);
+  const nameOf = id => { const p = people.find(x => x.id === id); return p ? p.name : "?"; };
+  const invite = base() + "#/g/" + group.id;
+  const myToken = (() => { try{ return localStorage.getItem("yuul_my_" + group.id); }catch(_){ return null; } })();
+  app.innerHTML = `
+    <p class="pill ${drawn ? "done" : ""}">${drawn ? "Draw completed" : "Collecting names"}</p>
+    <h1>${esc(group.name)}</h1>
+    <div class="fact">
+      <div><div class="k">Exchange day</div><div class="v">${esc(fmtDate(group.exchange_date))}</div></div>
+      ${group.budget ? `<div><div class="k">Budget cap</div><div class="v">${esc(group.budget)}</div></div>` : ""}
+      <div><div class="k">People in</div><div class="v">${people.length}</div></div>
+    </div>
+    <div class="card">
+      <label>Invite link — drop this in the group chat</label>
+      <div class="linkbox"><input type="text" readonly value="${esc(invite)}" id="inviteLink">
+      <button type="button" id="copyInvite">Copy</button></div>
+      ${myToken ? `<p class="small muted">You are in this draw too. <a href="#/p/${myToken}">Open your personal page</a> to add your wishlist and, after the draw, see your name.</p>` : ""}
+      <p class="small muted">Keep this organiser page private. It is the only page that can run the draw. Your personal page is where your own pairing appears — this page never shows pairings.</p>
+    </div>
+    <h2>Who is in (${people.length})</h2>
+    <div class="card">
+      ${people.map(p => `<div class="row"><span>${esc(p.name)}${p.name === group.organiser_name ? ' <span class="pill">organiser</span>' : ""}</span><span class="small muted">${p.wishlist ? "wishlist in" : "no wishlist yet"}</span></div>`).join("") || `<p class="muted">Nobody yet. Share the invite link.</p>`}
+    </div>
+    ${!drawn ? `
+    <h2>Exclusions</h2>
+    <div class="card">
+      <p class="small muted">Pairs who must not draw each other — couples, a manager and their direct report. Exclusions work both ways.</p>
+      ${exclusions.map(x => `<div class="row"><span>${esc(nameOf(x.participant_a))} ✕ ${esc(nameOf(x.participant_b))}</span><button class="btn ghost small-btn" data-del-ex="${x.id}">Remove</button></div>`).join("")}
+      <form id="exForm">
+        <label for="exA">First person</label>
+        <select id="exA">${people.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+        <label for="exB">Must not draw</label>
+        <select id="exB">${people.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+        <button class="btn ghost" type="submit">Add exclusion</button>
+      </form>
+    </div>
+    <h2>Run the draw</h2>
+    <div class="card">
+      <p class="small muted">${people.length < 3 ? "The draw needs at least 3 people. " : ""}Once the draw runs, pairings are locked and joining closes. Make sure everyone is in first.</p>
+      <button class="btn amber" id="runDraw" ${people.length < 3 ? "disabled" : ""}>Run the draw</button>
+      <div id="drawMsg"></div>
+    </div>` : `
+    <div class="card"><p><strong>The draw is done.</strong> Everyone can now open their personal link to see the name they drew. Pairings stay hidden on this page, including from you.</p></div>`}`;
+  const copyBtn = document.getElementById("copyInvite");
+  if(copyBtn) copyBtn.addEventListener("click", async () => {
+    const el = document.getElementById("inviteLink"); el.select();
+    try{ await navigator.clipboard.writeText(el.value); toast("Invite link copied"); }
+    catch(_){ document.execCommand("copy"); toast("Invite link copied"); }
+  });
+  document.querySelectorAll("[data-del-ex]").forEach(b => b.addEventListener("click", async () => {
+    await api("exclusions?id=eq." + b.getAttribute("data-del-ex"), { method:"DELETE" });
+    viewOrganiser(orgToken);
+  }));
+  const exForm = document.getElementById("exForm");
+  if(exForm) exForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if(exA.value === exB.value){ toast("Pick two different people"); return; }
+    await api("exclusions", { method:"POST", body:{ group_id: group.id, participant_a: exA.value, participant_b: exB.value } });
+    viewOrganiser(orgToken);
+  });
+  const runBtn = document.getElementById("runDraw");
+  if(runBtn) runBtn.addEventListener("click", async () => {
+    runBtn.disabled = true; runBtn.textContent = "Drawing…";
+    const result = computeDraw(people, exclusions);
+    const msg = document.getElementById("drawMsg");
+    if(!result){
+      msg.innerHTML = `<div class="err" style="margin-top:16px">No fair draw exists with these exclusions. Remove one exclusion and try again — the pairings were not changed.</div>`;
+      runBtn.disabled = false; runBtn.textContent = "Run the draw"; return;
+    }
+    try{
+      for(const giver of Object.keys(result)){
+        await api("participants?id=eq." + giver, { method:"PATCH", body:{ assigned_to: result[giver] } });
+      }
+      toast("The draw is done");
+      viewOrganiser(orgToken);
+    }catch(err){
+      msg.innerHTML = `<div class="err" style="margin-top:16px">The draw stopped halfway. ${esc(err.message)} Run it again — re-running is safe.</div>`;
+      runBtn.disabled = false; runBtn.textContent = "Run the draw";
+    }
+  });
+}
+
+/* ---------------- Personal page ---------------- */
+async function viewPersonal(token){
+  app.innerHTML = `<p class="muted">Loading your page…</p>`;
+  let me;
+  try{ me = await getOne("participants?token=eq." + encodeURIComponent(token) + "&select=*"); }
+  catch(err){ app.innerHTML = `<div class="err">This page could not be loaded. ${esc(err.message)}</div>`; return; }
+  if(!me){ app.innerHTML = `<div class="err">This personal link does not match anyone in a draw. Check the link and try again.</div>`; return; }
+  const group = await getOne("groups?id=eq." + me.group_id + "&select=*");
+  const people = await api("participants?group_id=eq." + me.group_id + "&select=id,name,wishlist");
+  const byId = {}; people.forEach(p => byId[p.id] = p);
+  const drawn = !!me.assigned_to;
+  const target = drawn ? byId[me.assigned_to] : null;
+  const toMe = await api("questions?to_participant=eq." + me.id + "&select=*&order=created_at.asc");
+  const fromMe = drawn ? await api("questions?from_participant=eq." + me.id + "&select=*&order=created_at.asc") : [];
+  app.innerHTML = `
+    <p class="pill ${drawn ? "done" : ""}">${esc(group.name)}</p>
+    <h1>Hello, ${esc(me.name)}</h1>
+    <div class="fact">
+      <div><div class="k">Exchange day</div><div class="v">${esc(fmtDate(group.exchange_date))}</div></div>
+      ${group.budget ? `<div><div class="k">Budget cap</div><div class="v">${esc(group.budget)}</div></div>` : ""}
+    </div>
+    ${drawn && target ? `
+    <div class="reveal">
+      <div class="k">You are buying for</div>
+      <div class="name">${esc(target.name)}</div>
+      ${target.wishlist ? `<div class="wish">${esc(target.wishlist)}</div>` : `<div class="wish">They have not added a wishlist yet.</div>`}
+    </div>` : `
+    <div class="card"><p><strong>The draw has not happened yet.</strong> When ${esc(group.organiser_name)} runs it, the name you drew will appear here. Keep this link — it is yours alone.</p></div>
+    <div class="card">
+      <form id="wishForm">
+        <label for="myWish">Your wishlist</label>
+        <textarea id="myWish" maxlength="300" placeholder="One per line. Sizes and colours help your Santa.">${esc(me.wishlist || "")}</textarea>
+        <button class="btn ghost" type="submit">Save wishlist</button>
+      </form>
+    </div>`}
+    ${toMe.length ? `<h2>Questions from your Secret Santa</h2>
+      ${toMe.map(q => `<div class="q"><div class="qt">${esc(q.question)}</div>
+        ${q.answer ? `<div class="qa">Your answer: ${esc(q.answer)}</div>` : `
+        <form class="ansForm" data-qid="${q.id}">
+          <input type="text" name="answer" maxlength="200" placeholder="Answer without giving yourself away">
+          <button class="btn small-btn" type="submit">Answer</button>
+        </form>`}</div>`).join("")}` : ""}
+    ${drawn ? `
+    <h2>Ask your person a question</h2>
+    <div class="card">
+      <p class="small muted">Anonymous. They see the question, never your name.</p>
+      <form id="askForm">
+        <input type="text" id="askText" maxlength="200" required placeholder="e.g. What shoe size are you?">
+        <button class="btn" type="submit">Send anonymously</button>
+      </form>
+      ${fromMe.map(q => `<div class="q"><div class="qt">${esc(q.question)}</div>
+        ${q.answer ? `<div class="qa">Answer: ${esc(q.answer)}</div>` : `<div class="small muted">No answer yet</div>`}</div>`).join("")}
+    </div>` : ""}`;
+  const wishForm = document.getElementById("wishForm");
+  if(wishForm) wishForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await api("participants?id=eq." + me.id, { method:"PATCH", body:{ wishlist: myWish.value.trim() || null } });
+    toast("Wishlist saved");
+  });
+  document.querySelectorAll(".ansForm").forEach(f => f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const val = f.querySelector("input[name=answer]").value.trim();
+    if(!val) return;
+    await api("questions?id=eq." + f.getAttribute("data-qid"), { method:"PATCH", body:{ answer: val } });
+    viewPersonal(token);
+  }));
+  const askForm = document.getElementById("askForm");
+  if(askForm) askForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await api("questions", { method:"POST", body:{ group_id: me.group_id,
+      from_participant: me.id, to_participant: me.assigned_to, question: askText.value.trim() } });
+    viewPersonal(token);
+  });
+}
+
+/* ---------------- Router ---------------- */
+function route(){
+  const h = location.hash || "#/";
+  const parts = h.replace(/^#\//, "").split("/");
+  window.scrollTo(0, 0);
+  if(parts[0] === "create") return viewCreate();
+  if(parts[0] === "g" && parts[1]) return viewJoin(parts[1]);
+  if(parts[0] === "o" && parts[1]) return viewOrganiser(parts[1]);
+  if(parts[0] === "p" && parts[1]) return viewPersonal(parts[1]);
+  return viewHome();
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
